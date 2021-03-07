@@ -1,6 +1,6 @@
 """
 @Name: Yatzy
-@Author: Patvil
+@Author: pvilje
 @Version: 1.0 
 """
 import re

@@ -1,6 +1,6 @@
 """
 @Name: Hangman
-@Author: Patvil
+@Author: pvilje
 @Version: 1.0
 """
 
