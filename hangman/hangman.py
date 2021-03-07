@@ -89,7 +89,7 @@ class Hangman:
             print("No word, cannot start a new game")
             return
         else:
-            regex = r"[^\d\wåäö]"
+            regex = r"[^a-zA-ZåäöÅÄÖ]"
             for letter in self.word:
                 if letter.upper() not in self.letters_to_find and not re.findall(regex, letter):
                     self.letters_to_find.append(letter.upper())
@@ -143,7 +143,7 @@ class Hangman:
         Draw the word hints (underscores or already correct chars)
         """
         hint_string = ""
-        regex = r"[^\d\wåäö]"
+        regex = r"[^a-zA-ZåäöÅÄÖ]"
         for letter in self.word:
             if letter.upper() in self.guesses_correct or re.findall(regex, letter):
                 hint_string += letter
