@@ -5,7 +5,7 @@ Simple command prompt games...
 
 ## Running the games
 ### Option 1, just run it
-Just runnning the python files will start the games with some default settings.
+Just running the python files will start the games with some default settings.
 
 ### Option 2, import 
 All games are class based should be possible to import.<br />
