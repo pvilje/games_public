@@ -1,7 +1,7 @@
 """
 @Name: Hangman
 @Author: Patvil
-@Version: 0.9 
+@Version: 1.0
 """
 
 import re
@@ -9,12 +9,12 @@ import requests
 
 class Hangman:
     """
-    TODO: Docstring
+    Simple Hangman command prompt game
     """
 
     def __init__(self) -> None:
         """
-        TODO Docstring
+        hangman command prompt game
         """
         self.word = ""
         self.letters_to_find = []
@@ -23,6 +23,8 @@ class Hangman:
         self.num_wrong_guesses = 0
         self.guess_max = 10
         self.man = ["","","","","",""]
+        self.cheat = False  # Indended for development only... But I'm not judging anyone :)
+        self.url = ""
 
     def _select_source(self):
         """
@@ -51,15 +53,31 @@ class Hangman:
         if source == "a":
             while len(self.word) < 1:
                 self.word = input("Please enter the word to use: ")
+            self.url = ""
 
         # Wikipedia
         if source == "b":
-            article = requests.get("https://en.wikipedia.org/wiki/Special:Random")
-            self.word = article.url.split("wiki/")[1].replace("_", " ")
+            self.word = self._get_wikipedia_article("https://en.wikipedia.org/wiki/Special:Random")
         
         if source == "c":
-            article = requests.get("https://sv.wikipedia.org/wiki/Special:Slumpsida")
-            self.word = article.url.split("wiki/")[1].replace("_", " ")
+            self.word = self._get_wikipedia_article("https://sv.wikipedia.org/wiki/Special:Slumpsida")
+
+
+    def _get_wikipedia_article(self, url):
+        """
+        Helper function to get a wikipedia article
+
+        Args:
+            url (string): The url to visit
+        """
+        article = requests.get(url)
+        while "%" in article.url:  # We don't want any weird character url encodings...
+            print(article.url)
+            article = requests.get(url)
+        if self.cheat:
+            print(article.url)
+        self.url = article.url
+        return article.url.split("wiki/")[1].replace("_", " ")
 
 
     def new_game(self):
@@ -78,6 +96,12 @@ class Hangman:
         self._draw_hangman()
 
         while len(self.letters_to_find) != len(self.guesses_correct):
+            if self.cheat:
+                to_find = ""
+                for letter in self.letters_to_find:
+                    if letter.upper() not in self.guesses_correct:
+                        to_find += "'{}' ".format(letter)
+                print("Letters still to find: {}".format(to_find))
             guess = input("Guess a letter: ")
             if len(guess) == 1:
                 if guess.upper() not in self.guesses_wrong and guess.upper() not in self.guesses_correct:
@@ -88,9 +112,13 @@ class Hangman:
                     print("You have already guessed that.")
             if self.num_wrong_guesses >= self.guess_max:
                 print("GAME OVER")
-                print("THe correct word was: {}".format(self.word))
+                print("The correct word was: {}".format(self.word))
+                if len(self.url) > 0:
+                    print("Want to know more? check out {}".format(self.url))
                 return
         print("Congratulations! you found the word: {}".format(self.word))
+        if len(self.url) > 0:
+            print("Want to know more? check out {}".format(self.url))
 
 
     
@@ -103,9 +131,11 @@ class Hangman:
         """
         if guess.lower() in self.word.lower():
             self.guesses_correct.append(guess.upper())
+            print("\n\n{} is a correct guess! ".format(guess))
         else:
             self.guesses_wrong.append(guess.upper())
             self.num_wrong_guesses += 1
+            print("\n\n{} is unfortunately not a correct guess! ".format(guess))
 
     def _draw_wordhints(self):
         """
@@ -185,4 +215,5 @@ class Hangman:
 
 if __name__ == "__main__":
     game = Hangman()
+    # game.cheat = True  # Do not enable this, would make it boring :) 
     game.new_game()
