@@ -6,6 +6,7 @@
 
 import re
 import requests
+import os
 
 class Hangman:
     """
@@ -72,7 +73,7 @@ class Hangman:
         """
         article = requests.get(url)
         while "%" in article.url:  # We don't want any weird character url encodings...
-            print(article.url)
+            # print(article.url)  # Enable to see the skipped articles
             article = requests.get(url)
         if self.cheat:
             print(article.url)
@@ -84,6 +85,7 @@ class Hangman:
         """
         Start a new game
         """
+        self._cls()
         self._select_source()
         if self.word == "":
             print("No word, cannot start a new game")
@@ -93,6 +95,8 @@ class Hangman:
             for letter in self.word:
                 if letter.upper() not in self.letters_to_find and not re.findall(regex, letter):
                     self.letters_to_find.append(letter.upper())
+        self._cls()
+        print("")
         self._draw_wordhints()
         self._draw_hangman()
 
@@ -103,7 +107,9 @@ class Hangman:
                     if letter.upper() not in self.guesses_correct:
                         to_find += "'{}' ".format(letter)
                 print("Letters still to find: {}".format(to_find))
+            print("")
             guess = input("Guess a letter: ")
+            self._cls()
             if len(guess) == 1:
                 if guess.upper() not in self.guesses_wrong and guess.upper() not in self.guesses_correct:
                     self._evaluate_guess(guess)
@@ -111,12 +117,20 @@ class Hangman:
                     self._draw_hangman()
                 else:
                     print("You have already guessed that.")
+                    self._draw_wordhints()
+                    self._draw_hangman()
+            else:
+                print("")
+                self._draw_wordhints()
+                self._draw_hangman()
+
             if self.num_wrong_guesses >= self.guess_max:
                 print("GAME OVER")
                 print("The correct word was: {}".format(self.word))
                 if len(self.url) > 0:
                     print("Want to know more? check out {}".format(self.url))
                 return
+
         print("Congratulations! you found the word: {}".format(self.word))
         if len(self.url) > 0:
             print("Want to know more? check out {}".format(self.url))
@@ -132,11 +146,11 @@ class Hangman:
         """
         if guess.lower() in self.word.lower():
             self.guesses_correct.append(guess.upper())
-            print("\n\n{} is a correct guess! ".format(guess))
+            print("{} is a correct guess! ".format(guess))
         else:
             self.guesses_wrong.append(guess.upper())
             self.num_wrong_guesses += 1
-            print("\n\n{} is unfortunately not a correct guess! ".format(guess))
+            print("{} is unfortunately not a correct guess! ".format(guess))
 
     def _draw_wordhints(self):
         """
@@ -213,6 +227,11 @@ class Hangman:
             guesses += "{} ".format(guess)
         print(guesses)
 
+    def _cls(self):
+        """
+        Clear the terminal window
+        """        
+        os.system('cls' if os.name=='nt' else 'clear')
 
 
 if __name__ == "__main__":
