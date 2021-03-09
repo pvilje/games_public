@@ -1,7 +1,7 @@
 """
 @Name: Hangman
 @Author: pvilje
-@Version: 1.0
+@Version: 1.01
 """
 
 import re
@@ -100,6 +100,8 @@ class Hangman:
         self._draw_wordhints()
         self._draw_hangman()
 
+
+        # Start main game loop
         while len(self.letters_to_find) != len(self.guesses_correct):
             if self.cheat:
                 to_find = ""
@@ -113,16 +115,12 @@ class Hangman:
             if len(guess) == 1:
                 if guess.upper() not in self.guesses_wrong and guess.upper() not in self.guesses_correct:
                     self._evaluate_guess(guess)
-                    self._draw_wordhints()
-                    self._draw_hangman()
                 else:
                     print("You have already guessed that.")
-                    self._draw_wordhints()
-                    self._draw_hangman()
             else:
                 print("")
-                self._draw_wordhints()
-                self._draw_hangman()
+            self._draw_wordhints()
+            self._draw_hangman()
 
             if self.num_wrong_guesses >= self.guess_max:
                 print("GAME OVER")
@@ -160,14 +158,15 @@ class Hangman:
         regex = r"[^a-zA-ZåäöÅÄÖ]"
         for letter in self.word:
             if letter.upper() in self.guesses_correct or re.findall(regex, letter):
-                hint_string += letter
+                hint_string += letter + " "
             else:
-                hint_string += "_"
+                hint_string += "_ "
         print ("\n Your word so far: {}".format(hint_string))
 
     def _draw_hangman(self):
         """
         Draw the image of the hanged man.
+        Image below just as a rererence for what it will look like
         [
             "     ______    ", # 0
             "    |      |   ", # 1
