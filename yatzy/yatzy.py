@@ -1,10 +1,11 @@
 """
 @Name: Yatzy
 @Author: pvilje
-@Version: 1.0 
+@Version: 1.1 
 """
 import re
 from random import randint
+import curses
 
 class Player:
     """
@@ -117,13 +118,26 @@ class Yatzy:
     The game class
     """
     def __init__(self, nbr_players=1):
+
+        # Setup curses
+        self.stdscr = curses.initscr()
+        max_y, max_x = self.stdscr.getmaxyx()
+        begin_x = max_x-23 
+        begin_y = 0
+        height = 25; width = 23
+        self.scorescr = curses.newwin(height, width, begin_y, begin_x)
+        begin_x = 0
+        begin_y = 0
+        height = 30; width = 50
+        self.gamescr = curses.newwin(height, width, begin_y, begin_x)
+
         self.dice = [0,0,0,0,0]
         self.player = []
         for player in range(0, nbr_players):
             self.player.append(Player(name="Player {}".format(player + 1)))
+        self.throw = ""
         self.throws = 0
         self.current_player = 0
-        self.log_debug = False
         self.keepers = 0b0  # Used as a bitmask to see which dices to keep
 
         self.option_table = {
@@ -151,7 +165,7 @@ class Yatzy:
         self.current_player += 1
         if self.current_player > len(self.player):
             self.current_player = 1
-        self.throws = 1
+        self.throws = 0
         self.dice = [0,0,0,0,0]
         self.keepers = 0
 
@@ -163,64 +177,61 @@ class Yatzy:
             self.reset_round()
             self.print_score()
             while self.throws <= 3:
-                self.log("Calling roll_dice")
+                self.throws += 1
                 self.roll_dice()
-                self.log("Calling draw dice")
                 self.draw_dice()
                 if self.throws < 3:
                     self.ask_keep_dice()
-                self.throws += 1
             self.save_score()
             self.print_score()
-            input("Press any key for next round:")
-
+        self.game_over()
+    
+    def game_over(self):
         # Game over
-        print("\n")
-        print("="*64)
+        # restore curses
+        curses.endwin()
+
         print("Game over, scores:")
         for player in self.player:
-            print("{}: {} points".format(player.name, player.score["total"]))
+            print(f"{player.name}: {player.score['total']} points")
+        quit()
 
     def ask_keep_dice(self):
         """
         Check what dice to keep
         """
-        print("state dice numbers to keep, seperate with commas.")
+        self.gamescr.addstr(17,0,"state dice numbers to keep, seperate with commas.")
         regex = r"[^1-5, ]|[1-5]{2,}"
         to_keep = "dummydata"
+        # are we quitting? 
         while re.findall(regex, to_keep):
-            to_keep = input("What dice to you want to keep? =>: ")
+            msg = "What dice to you want to keep? =>: "
+            self.gamescr.addstr(16,0,msg)
+            to_keep = self.gamescr.getstr(16,len(msg)).decode(encoding="utf-8")
+            self._refresh_game()
+            if to_keep == "q" or to_keep == "quit":
+                for idx in range(0, len(self.player)): self.player[idx].all_done = True
+                self.game_over()
         self.keepers = 0b0
-        self.log("will save:  {}".format(to_keep))
         if to_keep != "":
             for keeper in to_keep.split(","):
                 self.keepers += 2 ** (int(keeper) - 1)
         # mask = 0b11111
-        self.log("Keepers: {}".format(bin(self.keepers)))
         if self.keepers == 0b11111:
             self.throws = 3 
-        # self.keepers = mask - self.keepers
-        # self.log("Masked keepers: {}".format(bin(self.keepers)))
-        
 
     def roll_dice(self):
         """
         Roll the dice
         """
         keep = self.keepers
-        self.log("Will keep {}".format(keep))
         dice = 0
         keep_dice = 0b1
         while keep_dice <= 0b10000:
-            self.log("Checking dice {}".format(dice + 1))
             if not keep_dice & keep:
                 self.dice[dice] = randint(1, 6)
-                self.log("Rerolling dice {}".format(dice + 1))
-            else:
-                self.log("Keeping dice {}".format(dice + 1))
             dice += 1
             keep_dice = keep_dice * 2
-        self.log("Rolled dices {}".format(self.dice))
     
     def draw_dice(self):
         """
@@ -240,13 +251,21 @@ class Yatzy:
         for single_dice in self.dice:
             for row in range(0, 5):
                 throw[row] += dice[single_dice - 1][row] + space
-        result = ""
+        self.throw = ""
         for row in throw:
-            result += "\n" + row
-        result += " dice 1  dice 2  dice 3  dice 4  dice 5"
-        print("You rolled:")
-        print("{} Throw: {}".format(self.player[self.current_player - 1].name, self.throws))
-        print(result)
+            self.throw += "\n" + row
+        self.throw += " dice 1  dice 2  dice 3  dice 4  dice 5"
+        self.gamescr.clear()
+        self.gamescr.addstr(5,0,f"{self.player[self.current_player - 1].name} Throw: {self.throws}")
+        self.gamescr.addstr(6,0,"You rolled:")
+        self.draw_throw(7)
+
+    def draw_throw(self, row):
+        """
+        Draw only the dices
+        takes 6 lines
+        """
+        self.gamescr.addstr(row,0,self.throw)
 
     def save_score(self):
         """
@@ -255,18 +274,6 @@ class Yatzy:
         self.evaluate_scores()
         self.select_score()
         self.player[self.current_player - 1].update_score()
-
-
-    def log(self, msg):
-        """
-        Output debug info to consol.
-
-        Args:
-            msg (string): The string to print
-        """
-        if not self.log_debug:
-            return
-        print("Debug: {}".format(msg))
 
     def evaluate_scores(self):
         """
@@ -352,28 +359,31 @@ class Yatzy:
         Select what to save as
         """
         saved = False
-        # Print the results:
-        self._print_score_line("(a)", "one", "One")
-        self._print_score_line("(b)", "two", "Two")
-        self._print_score_line("(c)", "three", "Three")
-        self._print_score_line("(d)", "four", "Four")
-        self._print_score_line("(e)", "five", "Five")
-        self._print_score_line("(f)", "six", "Six")
-        self._print_score_line("(g)", "pair", "Pair")
-        self._print_score_line("(h)", "twopair", "two pair")
-        self._print_score_line("(i)", "threesome", "3 of a kind")
-        self._print_score_line("(j)", "foursome", "4 of a kind")
-        self._print_score_line("(k)", "smallstraight", "Sm. Straight")
-        self._print_score_line("(l)", "largestraight", "Lg. Straight")
-        self._print_score_line("(m)", "fullhouse", "Full house")
-        self._print_score_line("(n)", "chance", "Chance")
-        self._print_score_line("(o)", "yatzy", "Yatzy")
-
         regex = r"[^a-o]|[a-o]{2,}"
         while not saved:
+            self.gamescr.clear()
+            self.draw_throw(1)
+            self._print_score_line(10,"(a)", "one", "One")
+            self._print_score_line(11,"(b)", "two", "Two")
+            self._print_score_line(12,"(c)", "three", "Three")
+            self._print_score_line(13,"(d)", "four", "Four")
+            self._print_score_line(14,"(e)", "five", "Five")
+            self._print_score_line(15,"(f)", "six", "Six")
+            self._print_score_line(16,"(g)", "pair", "Pair")
+            self._print_score_line(17,"(h)", "twopair", "two pair")
+            self._print_score_line(18,"(i)", "threesome", "3 of a kind")
+            self._print_score_line(19,"(j)", "foursome", "4 of a kind")
+            self._print_score_line(20,"(k)", "smallstraight", "Sm. Straight")
+            self._print_score_line(21,"(l)", "largestraight", "Lg. Straight")
+            self._print_score_line(22,"(m)", "fullhouse", "Full house")
+            self._print_score_line(23,"(n)", "chance", "Chance")
+            self._print_score_line(24,"(o)", "yatzy", "Yatzy")
+            msg = "What to you want to save as?"
+            self.gamescr.addstr(28,0, msg)
             save_score_as = "dummydata"
             while re.findall(regex, save_score_as):
-                save_score_as = input("What to you want to save as? ")
+                save_score_as = self.gamescr.getstr(28, len(msg)).decode(encoding="utf-8")
+                self._refresh_game()
                 if save_score_as == "":
                     save_score_as = "dummydata"
 
@@ -382,40 +392,40 @@ class Yatzy:
                 self.temp_scores[self.option_table[save_score_as]])
             if not result:
                 saved = True
-            else:
-                print("option taken")
     
     def print_score(self):
         """
         Print the current scores!
         """
-        print("Scoreboard for {}".format(self.player[self.current_player - 1].name))
-        print("one\t\t{} {}".format(self.player[self.current_player - 1].score["one"], self.player[self.current_player - 1].saved_indicator["one"]))
-        print("two\t\t{} {}".format(self.player[self.current_player - 1].score["two"], self.player[self.current_player - 1].saved_indicator["two"]))
-        print("three\t\t{} {}".format(self.player[self.current_player - 1].score["three"], self.player[self.current_player - 1].saved_indicator["three"]))
-        print("four\t\t{} {}".format(self.player[self.current_player - 1].score["four"], self.player[self.current_player - 1].saved_indicator["four"]))
-        print("five\t\t{} {}".format(self.player[self.current_player - 1].score["five"], self.player[self.current_player - 1].saved_indicator["five"]))
-        print("six\t\t{} {}".format(self.player[self.current_player - 1].score["six"], self.player[self.current_player - 1].saved_indicator["six"]))
-        print("="*22)
-        print("Sum A\t\t{}".format(self.player[self.current_player - 1].score["tot-a"]))
-        print("Bonus A\t\t{}".format(self.player[self.current_player - 1].score["bonus-a"]))
-        print("Total A\t\t{}".format(self.player[self.current_player - 1].score["total-a"]))
-        print("="*22)
-        print("Pair\t\t{} {}".format(self.player[self.current_player - 1].score["pair"], self.player[self.current_player - 1].saved_indicator["pair"]))
-        print("Two Pair\t{} {}".format(self.player[self.current_player - 1].score["twopair"], self.player[self.current_player - 1].saved_indicator["twopair"]))
-        print("3 of a kind\t{} {}".format(self.player[self.current_player - 1].score["threesome"], self.player[self.current_player - 1].saved_indicator["threesome"]))
-        print("4 of a kind\t{} {}".format(self.player[self.current_player - 1].score["foursome"], self.player[self.current_player - 1].saved_indicator["foursome"]))
-        print("Sm straight\t{} {}".format(self.player[self.current_player - 1].score["smallstraight"], self.player[self.current_player - 1].saved_indicator["smallstraight"]))
-        print("Lg straight\t{} {}".format(self.player[self.current_player - 1].score["largestraight"], self.player[self.current_player - 1].saved_indicator["largestraight"]))
-        print("Full house\t{} {}".format(self.player[self.current_player - 1].score["fullhouse"], self.player[self.current_player - 1].saved_indicator["fullhouse"]))
-        print("Chance\t\t{} {}".format(self.player[self.current_player - 1].score["chance"], self.player[self.current_player - 1].saved_indicator["chance"]))
-        print("Yatzy\t\t{} {}".format(self.player[self.current_player - 1].score["yatzy"], self.player[self.current_player - 1].saved_indicator["yatzy"]))
-        print("="*22)
-        print("Total B\t\t{}".format(self.player[self.current_player - 1].score["tot-b"]))
-        print("Total\t\t{}".format(self.player[self.current_player - 1].score["total"]))
-        print("="*22)
+        self.scorescr.clear()
+        self.scorescr.addstr(0,0,f"Scoreboard for {self.player[self.current_player - 1].name}")
+        self.scorescr.addstr(1,0,f"one\t\t{self.player[self.current_player - 1].score['one']} {self.player[self.current_player - 1].saved_indicator['one']}")
+        self.scorescr.addstr(2,0,f"two\t\t{self.player[self.current_player - 1].score['two']} {self.player[self.current_player - 1].saved_indicator['two']}")
+        self.scorescr.addstr(3,0,f"three\t\t{self.player[self.current_player - 1].score['three']} {self.player[self.current_player - 1].saved_indicator['three']}")
+        self.scorescr.addstr(4,0,f"four\t\t{self.player[self.current_player - 1].score['four']} {self.player[self.current_player - 1].saved_indicator['four']}")
+        self.scorescr.addstr(5,0,f"five\t\t{self.player[self.current_player - 1].score['five']} {self.player[self.current_player - 1].saved_indicator['five']}")
+        self.scorescr.addstr(6,0,f"six\t\t{self.player[self.current_player - 1].score['six']} {self.player[self.current_player - 1].saved_indicator['six']}")
+        self.scorescr.addstr(7,0,"="*22)
+        self.scorescr.addstr(8,0,f"Sum A\t\t{self.player[self.current_player - 1].score['tot-a']}")
+        self.scorescr.addstr(9,0,f"Bonus A\t\t{self.player[self.current_player - 1].score['bonus-a']}")
+        self.scorescr.addstr(10,0,f"Total A\t\t{self.player[self.current_player - 1].score['total-a']}")
+        self.scorescr.addstr(11,0,"="*22)
+        self.scorescr.addstr(12,0,f"Pair\t\t{self.player[self.current_player - 1].score['pair']} {self.player[self.current_player - 1].saved_indicator['pair']}")
+        self.scorescr.addstr(13,0,f"Two Pair\t{self.player[self.current_player - 1].score['twopair']} {self.player[self.current_player - 1].saved_indicator['twopair']}")
+        self.scorescr.addstr(14,0,f"3 of a kind\t{self.player[self.current_player - 1].score['threesome']} {self.player[self.current_player - 1].saved_indicator['threesome']}")
+        self.scorescr.addstr(15,0,f"4 of a kind\t{self.player[self.current_player - 1].score['foursome']} {self.player[self.current_player - 1].saved_indicator['foursome']}")
+        self.scorescr.addstr(16,0,f"Sm straight\t{self.player[self.current_player - 1].score['smallstraight']} {self.player[self.current_player - 1].saved_indicator['smallstraight']}")
+        self.scorescr.addstr(17,0,f"Lg straight\t{self.player[self.current_player - 1].score['largestraight']} {self.player[self.current_player - 1].saved_indicator['largestraight']}")
+        self.scorescr.addstr(18,0,f"Full house\t{self.player[self.current_player - 1].score['fullhouse']} {self.player[self.current_player - 1].saved_indicator['fullhouse']}")
+        self.scorescr.addstr(19,0,f"Chance\t\t{self.player[self.current_player - 1].score['chance']} {self.player[self.current_player - 1].saved_indicator['chance']}")
+        self.scorescr.addstr(20,0,f"Yatzy\t\t{self.player[self.current_player - 1].score['yatzy']} {self.player[self.current_player - 1].saved_indicator['yatzy']}")
+        self.scorescr.addstr(21,0,"="*22)
+        self.scorescr.addstr(22,0,f"Total B\t\t{self.player[self.current_player - 1].score['tot-b']}")
+        self.scorescr.addstr(23,0,f"Total\t\t{self.player[self.current_player - 1].score['total']}")
+        self.scorescr.addstr(24,0,"="*22)
+        self.scorescr.refresh()
     
-    def _print_score_line(self, letter, option, pretty_string=None):
+    def _print_score_line(self, row:int, letter, option, pretty_string=None):
         """
         Helper function to print out the options to save and their scores
 
@@ -433,12 +443,17 @@ class Yatzy:
 
         if self.player[self.current_player - 1].saved[option]:
             # show the saved data
-            print ("{} {}:{}\t{} {}".format(letter, pretty_string, extra_tab, self.player[self.current_player - 1].score[option], self.player[self.current_player - 1].saved_indicator[option]))
+            self.gamescr.addstr(row, 0, f"{letter} {pretty_string}:{extra_tab}\t{self.player[self.current_player - 1].score[option]} {self.player[self.current_player - 1].saved_indicator[option]}")
         else:
             # show the calculated data.
-            print ("{} {}:{}\t{}".format(letter, pretty_string, extra_tab, self.temp_scores[option]))
+            self.gamescr.addstr(row, 0, f"{letter} {pretty_string}:{extra_tab}\t{self.temp_scores[option]}")
+    
+    def _refresh_game(self):
+        self.gamescr.refresh()
+
+def main():
+    yatzy = Yatzy(nbr_players=1)
+    yatzy.new_round()
 
 if __name__ == "__main__":
-    yatzy = Yatzy(nbr_players=1)
-    # yatzy.log_debug = True
-    yatzy.new_round()
+    main()
