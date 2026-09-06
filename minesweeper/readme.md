@@ -70,6 +70,7 @@ Space to jump, serves no purpose tho... why would you jump on a minefield?
 * [ ] Clean up!!!!!! so much clean up to do, remove unused files etc. get to it! 
 * [ ] Do I want to add the background story to the game somehow? not sure.
 * [ ] Been ages since I tried to build on linux, does that still work?
+* [ ] When dying i 3d mode there needs to be more blood, maybe the player should be shot away? current "game over" text is lame! 
 
 ### KNOWN BUGS
  * [ ] Weird flicker in Windows on gameover, but also gives a semicool effect so might leace it in.
