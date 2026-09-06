@@ -37,6 +37,10 @@ Max mode will simply check you screen resolution and provide a grid that fills t
 ### 3D
 
 Finally it is here! Minesweeper in 3d! simple as that. Basically why I made this game, I think it's kinda fun.
+You know the drill:
+WASD to move.
+Ctrl to "sprint" 
+Space to jump, serves no purpose tho... why would you jump on a minefield?
 
 ## Developer's corner.
 
@@ -65,9 +69,9 @@ Finally it is here! Minesweeper in 3d! simple as that. Basically why I made this
 * [ ] billboards in 3d version does not have transparent background in game, but source file does. (maybe a bug in raylib, or maybe I need to set some flags for the texture)
 * [ ] Clean up!!!!!! so much clean up to do, remove unused files etc. get to it! 
 * [ ] Do I want to add the background story to the game somehow? not sure.
+* [ ] Been ages since I tried to build on linux, does that still work?
 
 ### KNOWN BUGS
- *  ================
  * [ ] Weird flicker in Windows on gameover, but also gives a semicool effect so might leace it in.
  * [x] game over opens a ton of mines, way more than actually present
 
